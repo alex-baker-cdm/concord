@@ -210,6 +210,17 @@ export interface ProcessEntry {
     suspendTimeout?: number;
     runtime?: ProcessRuntime;
     requirements?: {};
+
+    dryRun?: boolean;
+    mocks?: MockDefinitionEntry[];
+}
+
+export interface MockDefinitionEntry {
+    task: string;
+    method?: string;
+    stepName?: string;
+    input?: Record<string, any>;
+    output?: Record<string, any>;
 }
 
 export interface StartProcessResponse {

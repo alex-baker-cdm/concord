@@ -29,6 +29,7 @@ import com.walmartlabs.concord.server.org.project.ProjectDao;
 import com.walmartlabs.concord.server.org.project.RepositoryDao;
 import com.walmartlabs.concord.server.process.queue.*;
 import com.walmartlabs.concord.server.process.queue.ProcessFilter.MetadataFilter;
+import com.walmartlabs.concord.server.process.state.ProcessStateManager;
 import com.walmartlabs.concord.server.sdk.ConcordApplicationException;
 import com.walmartlabs.concord.server.sdk.PartialProcessKey;
 import com.walmartlabs.concord.server.sdk.ProcessStatus;
@@ -39,6 +40,7 @@ import com.walmartlabs.concord.server.security.Permission;
 import com.walmartlabs.concord.server.security.Roles;
 import com.walmartlabs.concord.server.security.UserPrincipal;
 import com.walmartlabs.concord.server.user.UserDao;
+import com.walmartlabs.concord.sdk.Constants;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameters;
@@ -57,6 +59,8 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 import java.util.*;
+import java.util.function.Function;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import static com.walmartlabs.concord.server.Utils.unwrap;
 
@@ -73,6 +77,7 @@ public class ProcessResourceV2 implements Resource {
     private final UserDao userDao;
     private final OrganizationManager orgManager;
     private final ProjectAccessManager projectAccessManager;
+    private final ProcessStateManager processStateManager;
 
     @Inject
     public ProcessResourceV2(ProcessQueueDao queueDao,
@@ -81,7 +86,8 @@ public class ProcessResourceV2 implements Resource {
                              RepositoryDao repositoryDao,
                              UserDao userDao,
                              OrganizationManager orgManager,
-                             ProjectAccessManager projectAccessManager) {
+                             ProjectAccessManager projectAccessManager,
+                             ProcessStateManager processStateManager) {
 
         this.queueDao = queueDao;
         this.processQueueManager = processQueueManager;
@@ -90,6 +96,7 @@ public class ProcessResourceV2 implements Resource {
         this.userDao = userDao;
         this.orgManager = orgManager;
         this.projectAccessManager = projectAccessManager;
+        this.processStateManager = processStateManager;
     }
 
     /**
@@ -114,6 +121,8 @@ public class ProcessResourceV2 implements Resource {
         if (e.projectId() != null) {
             projectAccessManager.assertAccess(e.orgId(), e.projectId(), null, ResourceAccessLevel.READER, false);
         }
+
+        e = enrichWithDryRunAndMockInfo(e, processKey);
 
         return e;
     }
@@ -318,5 +327,63 @@ public class ProcessResourceV2 implements Resource {
     private Set<UUID> getCurrentUserOrgIds() {
         UserPrincipal p = UserPrincipal.assertCurrent();
         return userDao.getOrgIds(p.getId());
+    }
+
+    private ProcessEntry enrichWithDryRunAndMockInfo(ProcessEntry entry, PartialProcessKey processKey) {
+        try {
+            Optional<Map<String, Object>> cfgOpt = processStateManager.get(processKey, Constants.Files.CONFIGURATION_FILE_NAME, 
+                is -> {
+                    try {
+                        ObjectMapper om = new ObjectMapper();
+                        return Optional.of(om.readValue(is, Map.class));
+                    } catch (Exception e) {
+                        return Optional.empty();
+                    }
+                });
+            
+            Boolean dryRun = false;
+            if (cfgOpt.isPresent()) {
+                Map<String, Object> cfg = cfgOpt.get();
+                dryRun = (Boolean) cfg.get(Constants.Request.DRY_RUN_MODE_KEY);
+            }
+            
+            Optional<Map<String, Object>> varsOpt = processStateManager.get(processKey, Constants.Files.LAST_KNOWN_VARIABLES_FILE_NAME,
+                is -> {
+                    try {
+                        ObjectMapper om = new ObjectMapper();
+                        return Optional.of(om.readValue(is, Map.class));
+                    } catch (Exception e) {
+                        return Optional.empty();
+                    }
+                });
+            
+            List<ProcessEntry.MockDefinitionEntry> mocks = new ArrayList<>();
+            if (varsOpt.isPresent()) {
+                Map<String, Object> variables = varsOpt.get();
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> mocksList = (List<Map<String, Object>>) variables.get("mocks");
+                
+                if (mocksList != null) {
+                    for (Map<String, Object> mockDef : mocksList) {
+                        mocks.add(ImmutableMockDefinitionEntry.builder()
+                            .task((String) mockDef.get("task"))
+                            .method((String) mockDef.get("method"))
+                            .stepName((String) mockDef.get("stepName"))
+                            .input((Map<String, Object>) mockDef.get("in"))
+                            .output((Map<String, Object>) mockDef.get("out"))
+                            .build());
+                    }
+                }
+            }
+            
+            return ImmutableProcessEntry.builder()
+                       .from(entry)
+                       .dryRun(dryRun != null && dryRun)
+                       .mocks(mocks)
+                       .build();
+        } catch (Exception e) {
+            log.warn("Failed to retrieve dry-run/mock info for process {}: {}", processKey, e.getMessage());
+            return entry;
+        }
     }
 }

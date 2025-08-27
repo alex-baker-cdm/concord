@@ -158,6 +158,35 @@ public interface ProcessEntry extends Serializable {
     @Nullable
     String runtime();
 
+    @Nullable
+    Boolean dryRun();
+
+    @Nullable
+    List<MockDefinitionEntry> mocks();
+
+    @Value.Immutable
+    @JsonInclude(Include.NON_EMPTY)
+    @JsonSerialize(as = ImmutableMockDefinitionEntry.class)
+    @JsonDeserialize(as = ImmutableMockDefinitionEntry.class)
+    interface MockDefinitionEntry extends Serializable {
+        
+        long serialVersionUID = 1L;
+        
+        String task();
+        
+        @Nullable
+        String method();
+        
+        @Nullable
+        String stepName();
+        
+        @Nullable
+        Map<String, Object> input();
+        
+        @Nullable
+        Map<String, Object> output();
+    }
+
     @Value.Immutable
     @JsonInclude(Include.NON_EMPTY)
     @JsonSerialize(as = ImmutableCheckpointRestoreHistoryEntry.class)

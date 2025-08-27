@@ -41,7 +41,7 @@ import { Link } from 'react-router-dom';
 import { formatDistanceToNow, isAfter, parseISO as parseDate } from 'date-fns';
 import { SemanticCOLORS } from 'semantic-ui-react/dist/commonjs/generic';
 
-import { ProcessLastErrorModal, WithCopyToClipboard } from '../../molecules';
+import { ProcessLastErrorModal, WithCopyToClipboard, DryRunIndicator, MockTasksDisplay } from '../../molecules';
 import { CancelProcessPopup, DisableProcessPopup } from '../../organisms';
 import { ConcordId } from '../../../api/common';
 
@@ -87,6 +87,8 @@ const ProcessToolbar = memo((props: ExternalProps) => {
                 <MenuItem>{renderProcessStatus(process)}</MenuItem>
 
                 <MenuItem>{renderStartAt(process)}</MenuItem>
+
+                <MenuItem>{renderDryRunAndMockIndicators(process)}</MenuItem>
 
                 <MenuItem position={'right'}>{renderProcessMainActions(refresh, process, rootInstanceId)}</MenuItem>
 
@@ -180,6 +182,20 @@ const renderStartAt = (process?: ProcessEntry) => {
     }
 
     return;
+};
+
+const renderDryRunAndMockIndicators = (process?: ProcessEntry) => {
+    if (!process) {
+        return null;
+    }
+
+    return (
+        <>
+            <DryRunIndicator dryRun={process.dryRun} />
+            {process.dryRun && <span style={{ marginRight: '8px' }} />}
+            <MockTasksDisplay mocks={process.mocks} />
+        </>
+    );
 };
 
 const renderProcessMainActions = (refresh: () => void, process?: ProcessEntry, rootInstanceId?: ConcordId) => {

@@ -64,6 +64,8 @@ export { default as TeamAccessDropdown } from './TeamAccessDropdown';
 export { default as TeamAccessList } from './TeamAccessList';
 export { default as TeamRoleDropdown } from './TeamRoleDropdown';
 export { default as WithCopyToClipboard } from './WithCopyToClipboard';
+export { default as DryRunIndicator } from './DryRunIndicator';
+export { default as MockTasksDisplay } from './MockTasksDisplay';
 
 // https://github.com/facebook/create-react-app/issues/6054
 export * from './EditProjectForm';
