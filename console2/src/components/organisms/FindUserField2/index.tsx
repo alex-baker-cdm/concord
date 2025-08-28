@@ -37,7 +37,15 @@ interface Result {
 
 const renderDescription = (e: UserEntry): string => (e.email ? `${e.name} - ${e.email}` : e.name);
 
-const renderTitle = (e: UserEntry) => (e.displayName ? e.displayName : e.name);
+const renderTitle = (e: UserEntry) => {
+    if (!e.domain) {
+        return e.displayName ? `${e.displayName} (${e.name})` : e.name;
+    }
+    
+    return e.displayName 
+        ? `${e.displayName} (${e.name}@${e.domain})`
+        : `${e.name}@${e.domain}`;
+};
 
 export default ({ defaultUserId, placeholder, onSelect }: Props) => {
     const [value, setValue] = useState<string | undefined>();
