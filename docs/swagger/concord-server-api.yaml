@@ -1,0 +1,2411 @@
+openapi: 3.0.3
+info:
+  title: Concord Server API
+  description: |
+    Concord is a workflow server that orchestrates different systems together using scenarios and plugins.
+    This API provides endpoints for managing processes, organizations, projects, secrets, users, and more.
+  version: 2.32.1
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+  contact:
+    name: Concord Development Team
+    url: https://concord.walmartlabs.com
+
+servers:
+  - url: /api
+    description: Concord Server API
+
+tags:
+  - name: Server
+    description: Server status and maintenance operations
+  - name: Process
+    description: Process management operations (v1)
+  - name: ProcessV2
+    description: Process management operations (v2)
+  - name: Organizations
+    description: Organization management
+  - name: Projects
+    description: Project management
+  - name: Repositories
+    description: Repository management
+  - name: RepositoriesV2
+    description: Repository management (v2)
+  - name: Secrets
+    description: Secret management
+  - name: SecretsV2
+    description: Secret management (v2)
+  - name: Secret stores
+    description: Secret store management
+  - name: Users
+    description: User management
+  - name: UserV2
+    description: User management (v2)
+  - name: Teams
+    description: Team management
+  - name: Roles
+    description: Role management
+  - name: API keys
+    description: API key management
+  - name: API keys V2
+    description: API key management (v2)
+  - name: Agents
+    description: Agent management
+  - name: Triggers
+    description: Trigger management
+  - name: TriggersV2
+    description: Trigger management (v2)
+  - name: Policy
+    description: Policy management
+  - name: PolicyCheck
+    description: Policy check operations
+  - name: Inventories
+    description: Inventory management
+  - name: Inventory Data
+    description: Inventory data operations
+  - name: Inventory Queries
+    description: Inventory query operations
+  - name: JsonStore
+    description: JSON store management
+  - name: JsonStoreData
+    description: JSON store data operations
+  - name: JsonStoreQuery
+    description: JSON store query operations
+  - name: Process Forms
+    description: Process form operations
+  - name: FormsV1
+    description: Process form operations (v1)
+  - name: Process Events
+    description: Process event operations
+  - name: Process KV store
+    description: Process key-value store operations
+  - name: Process Locks
+    description: Process lock operations
+  - name: ProcessHeartbeat
+    description: Process heartbeat operations
+  - name: ProcessLogV2
+    description: Process log operations (v2)
+  - name: Checkpoint
+    description: Process checkpoint operations
+  - name: CheckpointV2
+    description: Process checkpoint operations (v2)
+  - name: External Events
+    description: External event handling
+  - name: GitHub Events
+    description: GitHub webhook event handling
+  - name: Audit Log
+    description: Audit log operations
+  - name: TemplateAlias
+    description: Template alias management
+  - name: UserLdapGroup
+    description: User LDAP group operations
+  - name: Project Processes
+    description: Project process operations
+  - name: ProcessCards
+    description: Process card operations
+
+paths:
+  /v1/server/ping:
+    get:
+      tags:
+        - Server
+      summary: Ping the server
+      description: Check if the server is alive and the database connection is working
+      operationId: ping
+      responses:
+        '200':
+          description: Server is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PingResponse'
+
+  /v1/server/version:
+    get:
+      tags:
+        - Server
+      summary: Get server version
+      description: Returns the current server version, commit ID, and environment
+      operationId: version
+      responses:
+        '200':
+          description: Server version information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionResponse'
+
+  /v1/server/maintenance-mode:
+    post:
+      tags:
+        - Server
+      summary: Enable maintenance mode
+      description: Puts the server into maintenance mode, stopping background tasks and message channels
+      operationId: maintenanceMode
+      responses:
+        '200':
+          description: Maintenance mode enabled
+
+  /v1/process:
+    post:
+      tags:
+        - Process
+      summary: Start new process
+      description: Starts a new process instance using multipart form data
+      operationId: startProcess
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                archive:
+                  type: string
+                  format: binary
+                  description: Process payload archive (ZIP)
+                org:
+                  type: string
+                  description: Organization name
+                project:
+                  type: string
+                  description: Project name
+                repo:
+                  type: string
+                  description: Repository name
+                entryPoint:
+                  type: string
+                  description: Entry point name
+                activeProfiles:
+                  type: array
+                  items:
+                    type: string
+                  description: Active profiles
+                arguments:
+                  type: object
+                  description: Process arguments
+      responses:
+        '200':
+          description: Process started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartProcessResponse'
+    get:
+      tags:
+        - Process
+      summary: List processes
+      description: Returns a list of processes with optional filters
+      operationId: listProcesses
+      parameters:
+        - name: orgId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: orgName
+          in: query
+          schema:
+            type: string
+        - name: projectId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: projectName
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ProcessStatus'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 30
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of processes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProcessEntry'
+
+  /v1/process/{id}:
+    get:
+      tags:
+        - Process
+      summary: Get process details
+      description: Returns details of a specific process instance
+      operationId: getProcess
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Process details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessEntry'
+        '404':
+          description: Process not found
+    delete:
+      tags:
+        - Process
+      summary: Kill process
+      description: Forcefully stops a process
+      operationId: killProcess
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Process killed
+
+  /v1/process/{id}/restart:
+    post:
+      tags:
+        - Process
+      summary: Restart process
+      description: Restarts a process instance
+      operationId: restartProcess
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Process restarted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartProcessResponse'
+
+  /v1/process/{id}/resume/{eventName}:
+    post:
+      tags:
+        - Process
+      summary: Resume process
+      description: Resumes a suspended process with the specified event
+      operationId: resumeProcess
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: eventName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: saveAs
+          in: query
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Process resumed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResumeProcessResponse'
+
+  /v1/process/{id}/fork:
+    post:
+      tags:
+        - Process
+      summary: Fork process
+      description: Starts a new child process by forking the start of the specified parent process
+      operationId: forkProcess
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Process forked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartProcessResponse'
+
+  /v1/process/{id}/cascade:
+    delete:
+      tags:
+        - Process
+      summary: Kill process cascade
+      description: Forcefully stops a process and all its children
+      operationId: killProcessCascade
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Process and children killed
+
+  /v1/process/bulk:
+    delete:
+      tags:
+        - Process
+      summary: Bulk kill processes
+      description: Forcefully stops multiple processes
+      operationId: bulkKillProcesses
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+                format: uuid
+      responses:
+        '200':
+          description: Processes killed
+
+  /v2/process:
+    get:
+      tags:
+        - ProcessV2
+      summary: List processes
+      description: Returns a list of processes with optional filters
+      operationId: listProcessesV2
+      parameters:
+        - name: orgId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: orgName
+          in: query
+          schema:
+            type: string
+        - name: projectId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: projectName
+          in: query
+          schema:
+            type: string
+        - name: repoId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: repoName
+          in: query
+          schema:
+            type: string
+        - name: afterCreatedAt
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: beforeCreatedAt
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: tags
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ProcessStatus'
+        - name: initiator
+          in: query
+          schema:
+            type: string
+        - name: parentInstanceId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: include
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 30
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: meta
+          in: query
+          schema:
+            type: object
+      responses:
+        '200':
+          description: List of processes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProcessEntry'
+
+  /v2/process/{id}:
+    get:
+      tags:
+        - ProcessV2
+      summary: Get process details
+      description: Returns details of a specific process instance
+      operationId: getProcessV2
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: include
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        '200':
+          description: Process details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessEntry'
+        '404':
+          description: Process not found
+
+  /v2/process/count:
+    get:
+      tags:
+        - ProcessV2
+      summary: Count processes
+      description: Returns the count of processes matching the specified filters
+      operationId: countProcesses
+      parameters:
+        - name: orgId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: orgName
+          in: query
+          schema:
+            type: string
+        - name: projectId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: projectName
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ProcessStatus'
+      responses:
+        '200':
+          description: Process count
+          content:
+            application/json:
+              schema:
+                type: integer
+
+  /v1/org:
+    post:
+      tags:
+        - Organizations
+      summary: Create or update organization
+      description: Creates a new organization or updates an existing one
+      operationId: createOrUpdateOrg
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationEntry'
+      responses:
+        '200':
+          description: Organization created or updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateOrganizationResponse'
+    get:
+      tags:
+        - Organizations
+      summary: List organizations
+      description: Returns a list of organizations
+      operationId: listOrgs
+      parameters:
+        - name: onlyCurrent
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: filter
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of organizations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrganizationEntry'
+
+  /v1/org/{orgName}:
+    get:
+      tags:
+        - Organizations
+      summary: Get organization
+      description: Returns details of a specific organization
+      operationId: getOrg
+      parameters:
+        - name: orgName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Organization details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationEntry'
+        '404':
+          description: Organization not found
+    delete:
+      tags:
+        - Organizations
+      summary: Delete organization
+      description: Removes an existing organization
+      operationId: deleteOrg
+      parameters:
+        - name: orgName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: confirmation
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Must be "yes" to confirm deletion
+      responses:
+        '200':
+          description: Organization deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericOperationResult'
+
+  /v1/org/{orgName}/project:
+    post:
+      tags:
+        - Projects
+      summary: Create or update project
+      description: Creates a new project or updates an existing one
+      operationId: createOrUpdateProject
+      parameters:
+        - name: orgName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectEntry'
+      responses:
+        '200':
+          description: Project created or updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectOperationResponse'
+    get:
+      tags:
+        - Projects
+      summary: List projects
+      description: Returns a list of projects in the organization
+      operationId: listProjects
+      parameters:
+        - name: orgName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: filter
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectEntry'
+
+  /v1/org/{orgName}/project/{projectName}:
+    get:
+      tags:
+        - Projects
+      summary: Get project
+      description: Returns details of a specific project
+      operationId: getProject
+      parameters:
+        - name: orgName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: projectName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectEntry'
+        '404':
+          description: Project not found
+    delete:
+      tags:
+        - Projects
+      summary: Delete project
+      description: Removes an existing project
+      operationId: deleteProject
+      parameters:
+        - name: orgName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: projectName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericOperationResult'
+
+  /v1/org/{orgName}/project/{projectName}/repository:
+    post:
+      tags:
+        - Repositories
+      summary: Create or update repository
+      description: Creates a new repository or updates an existing one
+      operationId: createOrUpdateRepository
+      parameters:
+        - name: orgName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: projectName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepositoryEntry'
+      responses:
+        '200':
+          description: Repository created or updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericOperationResult'
+    get:
+      tags:
+        - Repositories
+      summary: List repositories
+      description: Returns a list of repositories in the project
+      operationId: listRepositories
+      parameters:
+        - name: orgName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: projectName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of repositories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RepositoryEntry'
+
+  /v1/org/{orgName}/secret:
+    post:
+      tags:
+        - Secrets
+      summary: Create or update secret
+      description: Creates a new secret or updates an existing one
+      operationId: createOrUpdateSecret
+      parameters:
+        - name: orgName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                type:
+                  type: string
+                  enum: [KEY_PAIR, USERNAME_PASSWORD, DATA]
+                storeType:
+                  type: string
+                data:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Secret created or updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecretOperationResponse'
+    get:
+      tags:
+        - Secrets
+      summary: List secrets
+      description: Returns a list of secrets in the organization
+      operationId: listSecrets
+      parameters:
+        - name: orgName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: filter
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of secrets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SecretEntry'
+
+  /v1/org/{orgName}/secret/{secretName}:
+    get:
+      tags:
+        - Secrets
+      summary: Get secret
+      description: Returns details of a specific secret
+      operationId: getSecret
+      parameters:
+        - name: orgName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: secretName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Secret details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecretEntry'
+        '404':
+          description: Secret not found
+    delete:
+      tags:
+        - Secrets
+      summary: Delete secret
+      description: Removes an existing secret
+      operationId: deleteSecret
+      parameters:
+        - name: orgName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: secretName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Secret deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericOperationResult'
+
+  /v1/user:
+    post:
+      tags:
+        - Users
+      summary: Create or update user
+      description: Creates a new user or updates an existing one
+      operationId: createOrUpdateUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '200':
+          description: User created or updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateUserResponse'
+
+  /v1/user/{username}:
+    get:
+      tags:
+        - Users
+      summary: Find user by username
+      description: Returns details of a specific user
+      operationId: findUserByUsername
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEntry'
+        '404':
+          description: User not found
+
+  /v1/user/{id}:
+    delete:
+      tags:
+        - Users
+      summary: Delete user
+      description: Removes an existing user
+      operationId: deleteUser
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteUserResponse'
+
+  /v1/user/{id}/disable:
+    put:
+      tags:
+        - Users
+      summary: Disable user
+      description: Disables an existing user
+      operationId: disableUser
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: permanent
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: User disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEntry'
+
+  /v1/org/{orgName}/team:
+    post:
+      tags:
+        - Teams
+      summary: Create or update team
+      description: Creates a new team or updates an existing one
+      operationId: createOrUpdateTeam
+      parameters:
+        - name: orgName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamEntry'
+      responses:
+        '200':
+          description: Team created or updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateTeamResponse'
+    get:
+      tags:
+        - Teams
+      summary: List teams
+      description: Returns a list of teams in the organization
+      operationId: listTeams
+      parameters:
+        - name: orgName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of teams
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TeamEntry'
+
+  /v1/role:
+    post:
+      tags:
+        - Roles
+      summary: Create or update role
+      description: Creates a new role or updates an existing one
+      operationId: createOrUpdateRole
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleEntry'
+      responses:
+        '200':
+          description: Role created or updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleOperationResponse'
+    get:
+      tags:
+        - Roles
+      summary: List roles
+      description: Returns a list of roles
+      operationId: listRoles
+      responses:
+        '200':
+          description: List of roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleEntry'
+
+  /v1/apikey:
+    post:
+      tags:
+        - API keys
+      summary: Create API key
+      description: Creates a new API key for the current user
+      operationId: createApiKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApiKeyRequest'
+      responses:
+        '200':
+          description: API key created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateApiKeyResponse'
+    get:
+      tags:
+        - API keys
+      summary: List API keys
+      description: Returns a list of API keys for the current user
+      operationId: listApiKeys
+      parameters:
+        - name: userId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of API keys
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiKeyEntry'
+
+  /v1/apikey/{id}:
+    delete:
+      tags:
+        - API keys
+      summary: Delete API key
+      description: Removes an existing API key
+      operationId: deleteApiKey
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: API key deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericOperationResult'
+
+  /v1/agent/all/workers:
+    get:
+      tags:
+        - Agents
+      summary: List agent workers
+      description: Returns a list of currently available agent workers
+      operationId: listAgentWorkers
+      responses:
+        '200':
+          description: List of agent workers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AgentWorkerEntry'
+
+  /v1/agent/all/workersCount:
+    get:
+      tags:
+        - Agents
+      summary: Count agent workers
+      description: Counts the currently connected workers based on the specified capabilities property
+      operationId: countAgentWorkers
+      parameters:
+        - name: capabilities
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Worker count by capability
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: integer
+
+  /v1/org/{orgName}/trigger:
+    get:
+      tags:
+        - Triggers
+      summary: List triggers
+      description: Returns a list of triggers in the organization
+      operationId: listTriggers
+      parameters:
+        - name: orgName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: projectName
+          in: query
+          schema:
+            type: string
+        - name: repoName
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of triggers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TriggerEntry'
+
+  /v1/org/{orgName}/policy:
+    get:
+      tags:
+        - Policy
+      summary: Get policy
+      description: Returns the policy for the organization
+      operationId: getPolicy
+      parameters:
+        - name: orgName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Policy details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyEntry'
+    put:
+      tags:
+        - Policy
+      summary: Create or update policy
+      description: Creates or updates the policy for the organization
+      operationId: createOrUpdatePolicy
+      parameters:
+        - name: orgName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyEntry'
+      responses:
+        '200':
+          description: Policy created or updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyOperationResponse'
+
+  /v1/org/{orgName}/inventory:
+    post:
+      tags:
+        - Inventories
+      summary: Create or update inventory
+      description: Creates a new inventory or updates an existing one
+      operationId: createOrUpdateInventory
+      parameters:
+        - name: orgName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryEntry'
+      responses:
+        '200':
+          description: Inventory created or updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericOperationResult'
+    get:
+      tags:
+        - Inventories
+      summary: List inventories
+      description: Returns a list of inventories in the organization
+      operationId: listInventories
+      parameters:
+        - name: orgName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of inventories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InventoryEntry'
+
+  /v1/org/{orgName}/jsonstore:
+    post:
+      tags:
+        - JsonStore
+      summary: Create or update JSON store
+      description: Creates a new JSON store or updates an existing one
+      operationId: createOrUpdateJsonStore
+      parameters:
+        - name: orgName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsonStoreRequest'
+      responses:
+        '200':
+          description: JSON store created or updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericOperationResult'
+    get:
+      tags:
+        - JsonStore
+      summary: List JSON stores
+      description: Returns a list of JSON stores in the organization
+      operationId: listJsonStores
+      parameters:
+        - name: orgName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of JSON stores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JsonStoreEntry'
+
+  /v1/process/{id}/form:
+    get:
+      tags:
+        - Process Forms
+      summary: List process forms
+      description: Returns a list of forms for the process
+      operationId: listProcessForms
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of forms
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FormListEntry'
+
+  /v1/process/{id}/form/{formName}:
+    get:
+      tags:
+        - Process Forms
+      summary: Get form
+      description: Returns details of a specific form
+      operationId: getProcessForm
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: formName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Form details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormInstanceEntry'
+    post:
+      tags:
+        - Process Forms
+      summary: Submit form
+      description: Submits form data
+      operationId: submitProcessForm
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: formName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Form submitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormSubmitResponse'
+
+  /v1/process/{id}/event:
+    get:
+      tags:
+        - Process Events
+      summary: List process events
+      description: Returns a list of events for the process
+      operationId: listProcessEvents
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: after
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: fromId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: eventCorrelationId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: eventPhase
+          in: query
+          schema:
+            type: string
+        - name: includeAll
+          in: query
+          schema:
+            type: boolean
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 30
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProcessEventEntry'
+
+  /v1/events/external/{eventName}:
+    post:
+      tags:
+        - External Events
+      summary: Handle external event
+      description: Handles an external event and triggers matching processes
+      operationId: handleExternalEvent
+      parameters:
+        - name: eventName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Event handled
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventTriggerResult'
+
+  /v1/events/github:
+    post:
+      tags:
+        - GitHub Events
+      summary: Handle GitHub webhook
+      description: Handles GitHub webhook events
+      operationId: handleGithubEvent
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Event handled
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /v1/audit:
+    get:
+      tags:
+        - Audit Log
+      summary: List audit log entries
+      description: Returns a list of audit log entries
+      operationId: listAuditLog
+      parameters:
+        - name: object
+          in: query
+          schema:
+            type: string
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: userId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: after
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: before
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 30
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of audit log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditLogEntry'
+
+components:
+  schemas:
+    PingResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+
+    VersionResponse:
+      type: object
+      properties:
+        version:
+          type: string
+        commitId:
+          type: string
+        env:
+          type: string
+
+    ProcessStatus:
+      type: string
+      enum:
+        - NEW
+        - PREPARING
+        - ENQUEUED
+        - WAITING
+        - STARTING
+        - RUNNING
+        - SUSPENDED
+        - RESUMING
+        - FINISHED
+        - FAILED
+        - CANCELLED
+        - TIMED_OUT
+
+    ProcessEntry:
+      type: object
+      properties:
+        instanceId:
+          type: string
+          format: uuid
+        parentInstanceId:
+          type: string
+          format: uuid
+        orgId:
+          type: string
+          format: uuid
+        orgName:
+          type: string
+        projectId:
+          type: string
+          format: uuid
+        projectName:
+          type: string
+        repoId:
+          type: string
+          format: uuid
+        repoName:
+          type: string
+        repoUrl:
+          type: string
+        repoPath:
+          type: string
+        commitId:
+          type: string
+        commitBranch:
+          type: string
+        status:
+          $ref: '#/components/schemas/ProcessStatus'
+        initiator:
+          type: string
+        initiatorId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        lastUpdatedAt:
+          type: string
+          format: date-time
+        lastRunAt:
+          type: string
+          format: date-time
+        tags:
+          type: array
+          items:
+            type: string
+        handlers:
+          type: array
+          items:
+            type: string
+        meta:
+          type: object
+        disabled:
+          type: boolean
+        runtime:
+          type: string
+        timeout:
+          type: integer
+          format: int64
+        suspendTimeout:
+          type: integer
+          format: int64
+        exclusive:
+          type: object
+        startAt:
+          type: string
+          format: date-time
+        requirements:
+          type: object
+        out:
+          type: object
+        checkpoints:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProcessCheckpointEntry'
+        statusHistory:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProcessStatusHistoryEntry'
+        childrenIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    ProcessCheckpointEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    ProcessStatusHistoryEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/ProcessStatus'
+        changeDate:
+          type: string
+          format: date-time
+        payload:
+          type: object
+
+    StartProcessResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        instanceId:
+          type: string
+          format: uuid
+
+    ResumeProcessResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+
+    OrganizationEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        owner:
+          $ref: '#/components/schemas/EntityOwner'
+        visibility:
+          type: string
+          enum: [PUBLIC, PRIVATE]
+        meta:
+          type: object
+        cfg:
+          type: object
+
+    EntityOwner:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        userDomain:
+          type: string
+        displayName:
+          type: string
+        userType:
+          type: string
+
+    CreateOrganizationResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        id:
+          type: string
+          format: uuid
+        result:
+          type: string
+          enum: [CREATED, UPDATED, DELETED]
+
+    GenericOperationResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        result:
+          type: string
+          enum: [CREATED, UPDATED, DELETED]
+
+    ProjectEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        orgId:
+          type: string
+          format: uuid
+        orgName:
+          type: string
+        description:
+          type: string
+        owner:
+          $ref: '#/components/schemas/EntityOwner'
+        visibility:
+          type: string
+          enum: [PUBLIC, PRIVATE]
+        repositories:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/RepositoryEntry'
+        cfg:
+          type: object
+        meta:
+          type: object
+        acceptsRawPayload:
+          type: boolean
+        outVariablesMode:
+          type: string
+
+    ProjectOperationResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        id:
+          type: string
+          format: uuid
+        result:
+          type: string
+          enum: [CREATED, UPDATED, DELETED]
+
+    RepositoryEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        url:
+          type: string
+        branch:
+          type: string
+        commitId:
+          type: string
+        path:
+          type: string
+        secretId:
+          type: string
+          format: uuid
+        secretName:
+          type: string
+        disabled:
+          type: boolean
+        triggers:
+          type: object
+        meta:
+          type: object
+
+    SecretEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        orgId:
+          type: string
+          format: uuid
+        orgName:
+          type: string
+        projectId:
+          type: string
+          format: uuid
+        projectName:
+          type: string
+        type:
+          type: string
+          enum: [KEY_PAIR, USERNAME_PASSWORD, DATA]
+        storeType:
+          type: string
+        visibility:
+          type: string
+          enum: [PUBLIC, PRIVATE]
+        owner:
+          $ref: '#/components/schemas/EntityOwner'
+
+    SecretOperationResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        id:
+          type: string
+          format: uuid
+        result:
+          type: string
+          enum: [CREATED, UPDATED, DELETED]
+        password:
+          type: string
+        publicKey:
+          type: string
+
+    UserEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        domain:
+          type: string
+        displayName:
+          type: string
+        email:
+          type: string
+        type:
+          type: string
+          enum: [LOCAL, LDAP, SSO]
+        disabled:
+          type: boolean
+        disabledDate:
+          type: string
+          format: date-time
+        permanentlyDisabled:
+          type: boolean
+        roles:
+          type: array
+          items:
+            type: string
+
+    CreateUserRequest:
+      type: object
+      required:
+        - username
+      properties:
+        username:
+          type: string
+        userDomain:
+          type: string
+        displayName:
+          type: string
+        email:
+          type: string
+        type:
+          type: string
+          enum: [LOCAL, LDAP]
+        disabled:
+          type: boolean
+        roles:
+          type: array
+          items:
+            type: string
+
+    CreateUserResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        result:
+          type: string
+          enum: [CREATED, UPDATED]
+
+    DeleteUserResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+
+    TeamEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orgId:
+          type: string
+          format: uuid
+        orgName:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+
+    CreateTeamResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        id:
+          type: string
+          format: uuid
+        result:
+          type: string
+          enum: [CREATED, UPDATED]
+
+    RoleEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+
+    RoleOperationResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        id:
+          type: string
+          format: uuid
+        result:
+          type: string
+          enum: [CREATED, UPDATED, DELETED]
+
+    ApiKeyEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        expiredAt:
+          type: string
+          format: date-time
+
+    CreateApiKeyRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        userId:
+          type: string
+          format: uuid
+        expiredAt:
+          type: string
+          format: date-time
+
+    CreateApiKeyResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+
+    AgentWorkerEntry:
+      type: object
+      properties:
+        agentId:
+          type: string
+        channelId:
+          type: string
+        userAgent:
+          type: string
+        capabilities:
+          type: object
+
+    TriggerEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orgId:
+          type: string
+          format: uuid
+        orgName:
+          type: string
+        projectId:
+          type: string
+          format: uuid
+        projectName:
+          type: string
+        repositoryId:
+          type: string
+          format: uuid
+        repositoryName:
+          type: string
+        eventSource:
+          type: string
+        activeProfiles:
+          type: array
+          items:
+            type: string
+        arguments:
+          type: object
+        conditions:
+          type: object
+        cfg:
+          type: object
+
+    PolicyEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        parentId:
+          type: string
+          format: uuid
+        rules:
+          type: object
+
+    PolicyOperationResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        id:
+          type: string
+          format: uuid
+        result:
+          type: string
+          enum: [CREATED, UPDATED, DELETED]
+
+    InventoryEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        orgId:
+          type: string
+          format: uuid
+        orgName:
+          type: string
+        visibility:
+          type: string
+          enum: [PUBLIC, PRIVATE]
+        owner:
+          $ref: '#/components/schemas/EntityOwner'
+        parentId:
+          type: string
+          format: uuid
+
+    JsonStoreRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        visibility:
+          type: string
+          enum: [PUBLIC, PRIVATE]
+        owner:
+          $ref: '#/components/schemas/EntityOwner'
+
+    JsonStoreEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        orgId:
+          type: string
+          format: uuid
+        orgName:
+          type: string
+        visibility:
+          type: string
+          enum: [PUBLIC, PRIVATE]
+        owner:
+          $ref: '#/components/schemas/EntityOwner'
+
+    FormListEntry:
+      type: object
+      properties:
+        name:
+          type: string
+        branding:
+          type: object
+        custom:
+          type: boolean
+        yield:
+          type: boolean
+
+    FormInstanceEntry:
+      type: object
+      properties:
+        processInstanceId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormField'
+        custom:
+          type: boolean
+        yield:
+          type: boolean
+
+    FormField:
+      type: object
+      properties:
+        name:
+          type: string
+        label:
+          type: string
+        type:
+          type: string
+        cardinality:
+          type: string
+        allowedValue:
+          type: object
+        value:
+          type: object
+        options:
+          type: object
+
+    FormSubmitResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        processInstanceId:
+          type: string
+          format: uuid
+        errors:
+          type: object
+
+    ProcessEventEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        eventType:
+          type: string
+        eventDate:
+          type: string
+          format: date-time
+        data:
+          type: object
+
+    EventTriggerResult:
+      type: object
+      properties:
+        processId:
+          type: string
+          format: uuid
+        event:
+          type: object
+
+    AuditLogEntry:
+      type: object
+      properties:
+        entrySeq:
+          type: integer
+          format: int64
+        entryDate:
+          type: string
+          format: date-time
+        userId:
+          type: string
+          format: uuid
+        user:
+          $ref: '#/components/schemas/AuditLogUser'
+        object:
+          type: string
+        action:
+          type: string
+        details:
+          type: object
+
+    AuditLogUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: API key authentication. Use format "apikey"
+    SessionToken:
+      type: apiKey
+      in: cookie
+      name: JSESSIONID
+      description: Session-based authentication
+
+security:
+  - ApiKeyAuth: []
+  - SessionToken: []

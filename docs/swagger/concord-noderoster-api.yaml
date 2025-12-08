@@ -1,0 +1,313 @@
+openapi: 3.0.3
+info:
+  title: Concord Node Roster Plugin API
+  description: |
+    Concord Node Roster Plugin API provides endpoints for managing and querying
+    information about hosts that have been targeted by Concord processes,
+    including host details, deployed artifacts, Ansible facts, and process history.
+  version: 2.32.1
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+  contact:
+    name: Concord Development Team
+    url: https://concord.walmartlabs.com
+
+servers:
+  - url: /api
+    description: Concord Server API
+
+tags:
+  - name: Node Roster Hosts
+    description: Host management and querying
+  - name: Node Roster Artifacts
+    description: Artifact deployment tracking
+  - name: Node Roster Facts
+    description: Ansible facts retrieval
+  - name: Node Roster Processes
+    description: Process history for hosts
+
+paths:
+  /v1/noderoster/hosts:
+    get:
+      tags:
+        - Node Roster Hosts
+      summary: List known hosts
+      description: Returns a list of all known hosts that have been targeted by Concord processes
+      operationId: listKnownHosts
+      parameters:
+        - name: host
+          in: query
+          schema:
+            type: string
+          description: Filter by host name (partial match)
+        - name: artifact
+          in: query
+          schema:
+            type: string
+          description: Filter by deployed artifact
+        - name: processInstanceId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by process instance ID
+        - name: include
+          in: query
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/HostsDataInclude'
+          description: Additional data to include in the response
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 30
+          description: Maximum number of results to return
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+          description: Number of results to skip
+      responses:
+        '200':
+          description: List of hosts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HostEntry'
+        '400':
+          description: Invalid parameters
+
+  /v1/noderoster/hosts/{hostId}:
+    get:
+      tags:
+        - Node Roster Hosts
+      summary: Get host details
+      description: Returns details of a specific host by ID
+      operationId: getHost
+      parameters:
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Host ID
+      responses:
+        '200':
+          description: Host details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HostEntry'
+        '404':
+          description: Host not found
+
+  /v1/noderoster/artifacts:
+    get:
+      tags:
+        - Node Roster Artifacts
+      summary: List host artifacts
+      description: Returns a list of artifacts deployed on a specific host
+      operationId: listHostArtifacts
+      parameters:
+        - name: hostId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Host ID (either hostId or hostName is required)
+        - name: hostName
+          in: query
+          schema:
+            type: string
+          description: Host name (either hostId or hostName is required)
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: Filter artifacts by name (partial match)
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 30
+          description: Maximum number of results to return
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+          description: Number of results to skip
+      responses:
+        '200':
+          description: List of artifacts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ArtifactEntry'
+        '400':
+          description: Missing required parameters (hostId or hostName)
+
+  /v1/noderoster/facts/last:
+    get:
+      tags:
+        - Node Roster Facts
+      summary: Get last known facts
+      description: Returns the last known Ansible facts for a specific host
+      operationId: getLastFacts
+      parameters:
+        - name: hostId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Host ID (either hostId or hostName is required)
+        - name: hostName
+          in: query
+          schema:
+            type: string
+          description: Host name (either hostId or hostName is required)
+      responses:
+        '200':
+          description: Ansible facts as JSON object
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Ansible facts collected from the host
+        '400':
+          description: Missing required parameters (hostId or hostName)
+
+  /v1/noderoster/processes:
+    get:
+      tags:
+        - Node Roster Processes
+      summary: List host processes
+      description: Returns a list of Concord processes that have targeted a specific host
+      operationId: listHostProcesses
+      parameters:
+        - name: hostId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Host ID (either hostId or hostName is required)
+        - name: hostName
+          in: query
+          schema:
+            type: string
+          description: Host name (either hostId or hostName is required)
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 30
+          description: Maximum number of results to return
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+          description: Number of results to skip
+      responses:
+        '200':
+          description: List of processes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProcessEntry'
+        '400':
+          description: Missing required parameters (hostId or hostName)
+
+components:
+  schemas:
+    HostEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Host ID
+        name:
+          type: string
+          description: Host name
+        createdAt:
+          type: string
+          format: date-time
+          description: When the host was first seen
+        artifactUrl:
+          type: string
+          description: URL of the last deployed artifact
+        artifacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ArtifactEntry'
+          description: List of deployed artifacts (when included)
+
+    HostsDataInclude:
+      type: string
+      enum:
+        - ARTIFACTS
+      description: Additional data to include in host responses
+
+    ArtifactEntry:
+      type: object
+      properties:
+        url:
+          type: string
+          description: Artifact URL or identifier
+        processInstanceId:
+          type: string
+          format: uuid
+          description: Process that deployed the artifact
+        deployedAt:
+          type: string
+          format: date-time
+          description: When the artifact was deployed
+
+    ProcessEntry:
+      type: object
+      properties:
+        instanceId:
+          type: string
+          format: uuid
+          description: Process instance ID
+        createdAt:
+          type: string
+          format: date-time
+          description: When the process was created
+        initiator:
+          type: string
+          description: User who initiated the process
+        projectName:
+          type: string
+          description: Project name
+        status:
+          type: string
+          description: Process status
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: API key authentication. Use format "apikey"
+    SessionToken:
+      type: apiKey
+      in: cookie
+      name: JSESSIONID
+      description: Session-based authentication
+
+security:
+  - ApiKeyAuth: []
+  - SessionToken: []
