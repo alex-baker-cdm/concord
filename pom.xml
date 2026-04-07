@@ -74,7 +74,7 @@
         <node.version>20.12.2</node.version>
         <frontend.plugin.version>1.15.1</frontend.plugin.version>
 
-        <jdk.version>17</jdk.version>
+        <jdk.version>21</jdk.version>
         <failsafe.args>
             --add-opens java.base/java.util=ALL-UNNAMED
         </failsafe.args>
@@ -474,12 +474,6 @@
     </distributionManagement>
 
     <profiles>
-        <profile>
-            <id>jdk21</id>
-            <properties>
-                <jdk.version>21</jdk.version>
-            </properties>
-        </profile>
         <profile>
             <id>jdk21-aarch64</id>
             <properties>
