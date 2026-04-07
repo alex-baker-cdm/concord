@@ -90,7 +90,7 @@
             </properties>
         </profile>
         <profile>
-            <id>jdk17-aarch64</id>
+            <id>jdk21-aarch64</id>
             <properties>
                 <image.platforms>linux/aarch64</image.platforms>
             </properties>

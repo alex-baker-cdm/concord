@@ -1,5 +1,13 @@
 # Change Log
 
+## [Unreleased]
+
+### Changed
+
+- project: update default Java version from 17 to 21 LTS;
+- project: update CI workflows, Docker images, and documentation
+to use Java 21.
+
 ## [2.32.0] - 2025-08-20
 
 ### Added
